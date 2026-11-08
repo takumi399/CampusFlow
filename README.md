@@ -34,6 +34,10 @@
 
 ## 核心能力
 
+![CampusFlow 演示视频封面](docs/media/campusflow-demo-cover.png)
+
+> 演示视频：`docs/media/campusflow-demo.mp4`（1 分 23 秒，含中文字幕轨）
+
 ### 学生端
 
 - 浏览已发布活动，按分类、关键词和余位筛选。
