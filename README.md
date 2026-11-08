@@ -34,9 +34,9 @@
 
 ## 核心能力
 
-![CampusFlow 演示视频封面](docs/media/campusflow-demo-cover.png)
+[![CampusFlow 演示视频封面](docs/media/campusflow-demo-cover.png)](docs/media/campusflow-demo.mp4)
 
-> 演示视频：`docs/media/campusflow-demo.mp4`（1 分 23 秒，含中文字幕轨）
+> [观看演示视频](docs/media/campusflow-demo.mp4)（1 分 23 秒，含中文字幕轨）
 
 ### 学生端
 
