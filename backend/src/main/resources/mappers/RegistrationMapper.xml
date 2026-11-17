@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campusflow.mapper.RegistrationMapper">
+
+    <resultMap id="registrationMap" type="com.campusflow.domain.Registration">
+        <id column="id" property="id"/>
+        <result column="event_id" property="eventId"/>
+        <result column="user_id" property="userId"/>
+        <result column="status" property="status" javaType="com.campusflow.domain.RegistrationStatus"/>
+        <result column="waitlist_time" property="waitlistTime"/>
+        <result column="confirm_deadline" property="confirmDeadline"/>
+        <result column="checked_in_at" property="checkedInAt"/>
+        <result column="canceled_at" property="canceledAt"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <resultMap id="registrationViewMap" type="com.campusflow.domain.RegistrationView"
+               extends="registrationMap">
+        <result column="event_title" property="eventTitle"/>
+        <result column="event_start_time" property="eventStartTime"/>
+        <result column="event_end_time" property="eventEndTime"/>
+        <result column="event_location" property="eventLocation"/>
+        <result column="event_status" property="eventStatus" javaType="com.campusflow.domain.EventStatus"/>
+    </resultMap>
+
+    <resultMap id="adminRegistrationViewMap" type="com.campusflow.domain.AdminRegistrationView"
+               extends="registrationViewMap">
+        <result column="username" property="username"/>
+        <result column="display_name" property="displayName"/>
+    </resultMap>
+
+    <sql id="registrationColumns">
+        id, event_id, user_id, status, waitlist_time, confirm_deadline,
+        checked_in_at, canceled_at, created_at, updated_at
+    </sql>
+
+    <sql id="registrationViewColumns">
+        r.id, r.event_id, r.user_id, r.status, r.waitlist_time, r.confirm_deadline,
+        r.checked_in_at, r.canceled_at, r.created_at, r.updated_at,
+        e.title AS event_title,
+        e.start_time AS event_start_time,
+        e.end_time AS event_end_time,
+        e.location AS event_location,
+        e.status AS event_status
+    </sql>
+
+    <select id="findByEventAndUser" resultMap="registrationMap">
+        SELECT <include refid="registrationColumns"/>
+        FROM registrations
+        WHERE event_id = #{eventId}
+          AND user_id = #{userId}
+    </select>
+
+    <select id="findByEventAndUserForUpdate" resultMap="registrationMap">
+        SELECT <include refid="registrationColumns"/>
+        FROM registrations
+        WHERE event_id = #{eventId}
+          AND user_id = #{userId}
+        FOR UPDATE
+    </select>
+
+    <select id="findViewByEventAndUser" resultMap="registrationViewMap">
+        SELECT <include refid="registrationViewColumns"/>
+        FROM registrations r
+        JOIN events e ON e.id = r.event_id
+        WHERE r.event_id = #{eventId}
+          AND r.user_id = #{userId}
+    </select>
+
+    <select id="findById" resultMap="registrationMap">
+        SELECT <include refid="registrationColumns"/>
+        FROM registrations
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="registrationMap">
+        SELECT <include refid="registrationColumns"/>
+        FROM registrations
+        WHERE id = #{id}
+        FOR UPDATE
+    </select>
+
+    <insert id="insert" parameterType="com.campusflow.domain.Registration"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO registrations (
+            event_id, user_id, status, waitlist_time, confirm_deadline,
+            checked_in_at, canceled_at
+        )
+        VALUES (
+            #{eventId}, #{userId}, #{status}, #{waitlistTime}, #{confirmDeadline},
+            #{checkedInAt}, #{canceledAt}
+        )
+    </insert>
+
+    <update id="markConfirmedOnRegister">
+        UPDATE registrations
+        SET status = 'CONFIRMED',
+            waitlist_time = NULL,
+            confirm_deadline = NULL,
+            checked_in_at = NULL,
+            canceled_at = NULL,
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+    </update>
+
+    <update id="markWaitlistedOnRegister">
+        UPDATE registrations
+        SET status = 'WAITLISTED',
+            waitlist_time = #{waitlistTime},
+            confirm_deadline = NULL,
+            checked_in_at = NULL,
+            canceled_at = NULL,
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+    </update>
+
+    <update id="markCanceled">
+        UPDATE registrations
+        SET status = 'CANCELED',
+            canceled_at = #{canceledAt},
+            confirm_deadline = NULL,
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+    </update>
+
+    <update id="markPromoted">
+        UPDATE registrations
+        SET status = 'PROMOTED',
+            confirm_deadline = #{confirmDeadline},
+            canceled_at = NULL,
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+    </update>
+
+    <update id="markConfirmedAfterPromotion">
+        UPDATE registrations
+        SET status = 'CONFIRMED',
+            confirm_deadline = NULL,
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+    </update>
+
+    <update id="markExpired">
+        UPDATE registrations
+        SET status = 'EXPIRED',
+            confirm_deadline = NULL,
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+    </update>
+
+    <update id="markCheckedIn">
+        UPDATE registrations
+        SET status = 'CHECKED_IN',
+            checked_in_at = #{checkedInAt},
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+    </update>
+
+    <select id="findFirstWaitlistedForUpdate" resultMap="registrationMap">
+        SELECT <include refid="registrationColumns"/>
+        FROM registrations
+        WHERE event_id = #{eventId}
+          AND status = 'WAITLISTED'
+        ORDER BY waitlist_time ASC, id ASC
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="findExpiredPromotionIds" resultType="long">
+        SELECT id
+        FROM registrations
+        WHERE status = 'PROMOTED'
+          AND confirm_deadline IS NOT NULL
+          AND confirm_deadline &lt;= #{now}
+        ORDER BY confirm_deadline ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="countWaitlistedBefore" resultType="int">
+        SELECT COUNT(*)
+        FROM registrations
+        WHERE event_id = #{eventId}
+          AND status = 'WAITLISTED'
+          AND (
+              waitlist_time &lt; #{waitlistTime}
+              OR (waitlist_time = #{waitlistTime} AND id &lt; #{id})
+          )
+    </select>
+
+    <select id="countByEventAndStatus" resultType="long">
+        SELECT COUNT(*)
+        FROM registrations
+        WHERE event_id = #{eventId}
+          AND status = #{status}
+    </select>
+
+    <select id="findViewsByUserId" resultMap="registrationViewMap">
+        SELECT <include refid="registrationViewColumns"/>
+        FROM registrations r
+        JOIN events e ON e.id = r.event_id
+        WHERE r.user_id = #{userId}
+        ORDER BY r.created_at DESC, r.id DESC
+    </select>
+
+    <select id="findAdminViewsByEventId" resultMap="adminRegistrationViewMap">
+        SELECT <include refid="registrationViewColumns"/>,
+               u.username,
+               u.display_name
+        FROM registrations r
+        JOIN events e ON e.id = r.event_id
+        JOIN users u ON u.id = r.user_id
+        WHERE r.event_id = #{eventId}
+        ORDER BY
+            FIELD(r.status, 'CHECKED_IN', 'CONFIRMED', 'PROMOTED', 'WAITLISTED', 'CANCELED', 'EXPIRED'),
+            r.waitlist_time ASC,
+            r.created_at ASC,
+            r.id ASC
+    </select>
+
+    <select id="findAdminViewById" resultMap="adminRegistrationViewMap">
+        SELECT <include refid="registrationViewColumns"/>,
+               u.username,
+               u.display_name
+        FROM registrations r
+        JOIN events e ON e.id = r.event_id
+        JOIN users u ON u.id = r.user_id
+        WHERE r.id = #{id}
+    </select>
+
+    <update id="cancelAllActiveByEvent">
+        UPDATE registrations
+        SET status = 'CANCELED',
+            canceled_at = #{canceledAt},
+            confirm_deadline = NULL,
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE event_id = #{eventId}
+          AND status IN ('CONFIRMED', 'WAITLISTED', 'PROMOTED', 'CHECKED_IN')
+    </update>
+</mapper>

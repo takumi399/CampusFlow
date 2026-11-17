@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.campusflow.mapper.EventMapper">
+
+    <resultMap id="eventMap" type="com.campusflow.domain.Event">
+        <id column="id" property="id"/>
+        <result column="title" property="title"/>
+        <result column="description" property="description"/>
+        <result column="location" property="location"/>
+        <result column="category" property="category"/>
+        <result column="organizer" property="organizer"/>
+        <result column="start_time" property="startTime"/>
+        <result column="end_time" property="endTime"/>
+        <result column="registration_start" property="registrationStart"/>
+        <result column="registration_end" property="registrationEnd"/>
+        <result column="capacity" property="capacity"/>
+        <result column="occupied_count" property="occupiedCount"/>
+        <result column="status" property="status" javaType="com.campusflow.domain.EventStatus"/>
+        <result column="created_by" property="createdBy"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+    </resultMap>
+
+    <sql id="eventColumns">
+        id, title, description, location, category, organizer,
+        start_time, end_time, registration_start, registration_end,
+        capacity, occupied_count, status, created_by, created_at, updated_at
+    </sql>
+
+    <select id="findById" resultMap="eventMap">
+        SELECT <include refid="eventColumns"/>
+        FROM events
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="eventMap">
+        SELECT <include refid="eventColumns"/>
+        FROM events
+        WHERE id = #{id}
+        FOR UPDATE
+    </select>
+
+    <select id="findPublished" resultMap="eventMap">
+        SELECT <include refid="eventColumns"/>
+        FROM events
+        WHERE status = 'PUBLISHED'
+        ORDER BY start_time ASC, id ASC
+    </select>
+
+    <select id="findAll" resultMap="eventMap">
+        SELECT <include refid="eventColumns"/>
+        FROM events
+        ORDER BY created_at DESC, id DESC
+    </select>
+
+    <insert id="insert" parameterType="com.campusflow.domain.Event"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO events (
+            title, description, location, category, organizer,
+            start_time, end_time, registration_start, registration_end,
+            capacity, occupied_count, status, created_by
+        )
+        VALUES (
+            #{title}, #{description}, #{location}, #{category}, #{organizer},
+            #{startTime}, #{endTime}, #{registrationStart}, #{registrationEnd},
+            #{capacity}, 0, #{status}, #{createdBy}
+        )
+    </insert>
+
+    <update id="updateDraft" parameterType="com.campusflow.domain.Event">
+        UPDATE events
+        SET title = #{title},
+            description = #{description},
+            location = #{location},
+            category = #{category},
+            organizer = #{organizer},
+            start_time = #{startTime},
+            end_time = #{endTime},
+            registration_start = #{registrationStart},
+            registration_end = #{registrationEnd},
+            capacity = #{capacity},
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND status = 'DRAFT'
+    </update>
+
+    <update id="publish">
+        UPDATE events
+        SET status = 'PUBLISHED', updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND status = 'DRAFT'
+    </update>
+
+    <update id="cancel">
+        UPDATE events
+        SET status = 'CANCELED', updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND status = 'PUBLISHED'
+    </update>
+
+    <update id="finish">
+        UPDATE events
+        SET status = 'FINISHED', updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND status = 'PUBLISHED'
+    </update>
+
+    <update id="incrementOccupied">
+        UPDATE events
+        SET occupied_count = occupied_count + 1,
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND occupied_count &lt; capacity
+    </update>
+
+    <update id="decrementOccupied">
+        UPDATE events
+        SET occupied_count = occupied_count - 1,
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+          AND occupied_count > 0
+    </update>
+
+    <update id="resetOccupied">
+        UPDATE events
+        SET occupied_count = 0,
+            updated_at = CURRENT_TIMESTAMP(3)
+        WHERE id = #{id}
+    </update>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM events
+    </select>
+</mapper>
